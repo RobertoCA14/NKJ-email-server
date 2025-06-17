@@ -1,0 +1,11 @@
+{
+  "name": "nkj-email-server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "nodemailer": "^6.9.3",
+    "express-rate-limit": "^7.0.0",
+    "validator": "^13.9.0"
+  }
+}
