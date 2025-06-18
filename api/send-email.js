@@ -1,3 +1,15 @@
+module.exports = async (req, res) => {
+  // Permitir solicitudes CORS
+  res.setHeader("Access-Control-Allow-Origin", "*"); // o tu dominio en vez de "*"
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  // Manejar preflight request
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  // ... el resto de tu código 
 // File: api/send-email.js (Vercel structure)
 
 const nodemailer = require("nodemailer");
@@ -95,4 +107,5 @@ module.exports = async (req, res) => {
     console.error("Error sending email:", error);
     res.status(500).json({ success: false, message: "Failed to send email ❌", error });
   }
+};
 };
