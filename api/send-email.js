@@ -1,6 +1,7 @@
 const nodemailer = require("nodemailer");
 
 const allowedOrigins = [
+  res.setHeader("Access-Control-Allow-Origin", "https://rycz3p-5173.csb.app");
   "https://nkjconstructionllc.com", // tu dominio real
   "https://tu-frontend.vercel.app", // reemplaza con el que estés usando
   "https://codesandbox.io",         // si estás probando desde ahí
