@@ -1,25 +1,40 @@
+// File: api/send-email.js
+
 const nodemailer = require("nodemailer");
 const validator = require("validator");
+const rateLimit = require("express-rate-limit");
 
-// CORS básico
-function handleCors(req, res) {
+// Configurar límite de envíos
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  handler: (req, res) => {
+    return res.status(429).json({
+      success: false,
+      message: "Too many requests. Please try again later.",
+    });
+  },
+});
+
+module.exports = async (req, res) => {
+  // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  if (req.method === "OPTIONS") {
-    res.status(200).end();
-    return true;
-  }
-  return false;
-}
-
-module.exports = async (req, res) => {
-  if (handleCors(req, res)) return;
-
+  // Manejar preflight
+  if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") {
     return res.status(405).json({ success: false, message: "Method not allowed" });
   }
+
+  // Aplicar rate limiter manualmente
+  await new Promise((resolve, reject) => {
+    limiter(req, res, (result) => {
+      if (result instanceof Error) return reject(result);
+      resolve(result);
+    });
+  });
 
   const { name, email, subject, message } = req.body;
 
@@ -31,6 +46,12 @@ module.exports = async (req, res) => {
     return res.status(400).json({ success: false, message: "Invalid email format." });
   }
 
+  // Validación de dominios sospechosos (opcional)
+  const domain = email.split("@")[1];
+  if (["test.com", "example.com"].includes(domain)) {
+    return res.status(400).json({ success: false, message: "Email domain not accepted." });
+  }
+
   try {
     const transporter = nodemailer.createTransport({
       service: "gmail",
@@ -40,27 +61,46 @@ module.exports = async (req, res) => {
       },
     });
 
+    // Correo al admin
     await transporter.sendMail({
       from: `${name} <${email}>`,
       to: process.env.EMAIL_USER,
-      replyTo: email,
       subject,
       html: `
-        <h2>New message from contact form</h2>
-        <p><strong>Name:</strong> ${name}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Subject:</strong> ${subject}</p>
-        <p><strong>Message:</strong><br>${message}</p>
+        <h2>Nuevo mensaje recibido desde el formulario</h2>
+        <p><strong>Nombre:</strong> ${name}</p>
+        <p><strong>Correo:</strong> ${email}</p>
+        <p><strong>Asunto:</strong> ${subject}</p>
+        <p><strong>Mensaje:</strong><br>${message}</p>
         <hr>
         <p style="font-size: 0.9em; color: gray;">
-          Sent from <a href="https://nkjconstructionllc.com" target="_blank">nkjconstructionllc.com</a>
+          Enviado desde <a href="https://nkjconstructionllc.com" target="_blank">nkjconstructionllc.com</a>.
         </p>
       `,
     });
 
-    res.status(200).json({ success: true, message: "✅ Email sent successfully." });
+    // Correo de confirmación al cliente
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: `We received your message: ${subject}`,
+      html: `
+        <h3>Hello ${name},</h3>
+        <p>Thank you for reaching out to NKJ Construction LLC.</p>
+        <p>We’ve received your message and will respond as soon as possible.</p>
+        <hr>
+        <p><strong>Your message:</strong></p>
+        <p>${message}</p>
+        <br>
+        <p style="font-size: 0.9em; color: gray;">
+          This is an automatic response from <a href="https://nkjconstructionllc.com" target="_blank">nkjconstructionllc.com</a>.
+        </p>
+      `,
+    });
+
+    res.status(200).json({ success: true, message: "✅ Email sent successfully" });
   } catch (error) {
-    console.error("❌ Error:", error);
-    res.status(500).json({ success: false, message: "❌ Failed to send email.", error });
+    console.error("❌ Email error:", error);
+    res.status(500).json({ success: false, message: "❌ Failed to send email", error });
   }
 };
