@@ -3,13 +3,12 @@
   "info": {
     "title": "NKJ Email API",
     "version": "1.0.0",
-    "description": "Envío de correos desde el formulario de contacto"
+    "description": "Send emails using the contact form of nkjconstructionllc.com"
   },
   "paths": {
     "/api/send-email": {
       "post": {
-        "summary": "Enviar correo",
-        "description": "Envía un correo con nombre, correo, asunto y mensaje",
+        "summary": "Send contact email",
         "requestBody": {
           "required": true,
           "content": {
@@ -29,13 +28,10 @@
         },
         "responses": {
           "200": {
-            "description": "Correo enviado exitosamente"
+            "description": "Email sent successfully"
           },
           "400": {
-            "description": "Error de validación"
-          },
-          "500": {
-            "description": "Error del servidor"
+            "description": "Validation error"
           }
         }
       }
