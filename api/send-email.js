@@ -1,40 +1,48 @@
-const express = require('express');
-const cors = require('cors');
-const nodemailer = require('nodemailer');
-const validator = require('validator');
+const nodemailer = require("nodemailer");
+const validator = require("validator");
 
-// Habilitar CORS (permitir todas las solicitudes por ahora)
-const app = express();
-app.use(cors());
-app.use(express.json());  // Para que se pueda leer el cuerpo JSON
+// CORS básico
+function handleCors(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-// Ruta para el formulario de contacto
-app.post('/api/send-email', async (req, res) => {
+  if (req.method === "OPTIONS") {
+    res.status(200).end();
+    return true;
+  }
+  return false;
+}
+
+module.exports = async (req, res) => {
+  if (handleCors(req, res)) return;
+
+  if (req.method !== "POST") {
+    return res.status(405).json({ success: false, message: "Method not allowed" });
+  }
+
   const { name, email, subject, message } = req.body;
 
-  // Validaciones
   if (!name || !email || !subject || !message) {
-    return res.status(400).json({ success: false, message: 'All fields are required.' });
+    return res.status(400).json({ success: false, message: "All fields are required." });
   }
- 
+
   if (!validator.isEmail(email)) {
-    return res.status(400).json({ success: false, message: 'Invalid email format.' });
+    return res.status(400).json({ success: false, message: "Invalid email format." });
   }
 
   try {
-    // Configuración de Nodemailer
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      service: "gmail",
       auth: {
-        user: process.env.EMAIL_USER,  // Tu correo de Gmail
-        pass: process.env.EMAIL_PASS,  // Tu contraseña de Gmail o App Password
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
       },
     });
 
-    // Enviar correo
     await transporter.sendMail({
       from: `${name} <${email}>`,
-      to: process.env.EMAIL_USER,  // Correo destino
+      to: process.env.EMAIL_USER,
       replyTo: email,
       subject,
       html: `
@@ -50,15 +58,9 @@ app.post('/api/send-email', async (req, res) => {
       `,
     });
 
-    res.status(200).json({ success: true, message: '✅ Email sent successfully.' });
+    res.status(200).json({ success: true, message: "✅ Email sent successfully." });
   } catch (error) {
-    console.error('❌ Error:', error);
-    res.status(500).json({ success: false, message: '❌ Failed to send email.', error });
+    console.error("❌ Error:", error);
+    res.status(500).json({ success: false, message: "❌ Failed to send email.", error });
   }
-});
-
-// Puerto para escuchar las solicitudes
-const port = process.env.PORT || 5000;
-app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
-});
+};
