@@ -1,0 +1,45 @@
+// ✅ 1. Archivo: /public/swagger.json
+// Este archivo define el esquema OpenAPI de tu API. Puedes modificar los detalles según los parámetros reales que uses en tu endpoint
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "NKJ Construction Email API",
+    "version": "1.0.0",
+    "description": "API para enviar correos desde el formulario de contacto de nkjconstructionllc.com"
+  },
+  "paths": {
+    "/api/send-email": {
+      "post": {
+        "summary": "Enviar correo desde el formulario de contacto",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "email": { "type": "string", "format": "email" },
+                  "subject": { "type": "string" },
+                  "message": { "type": "string" }
+                },
+                "required": ["name", "email", "subject", "message"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correo enviado exitosamente"
+          },
+          "400": {
+            "description": "Error de validación o campos faltantes"
+          },
+          "500": {
+            "description": "Error interno del servidor"
+          }
+        }
+      }
+    }
+  }
+}
