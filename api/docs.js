@@ -1,27 +1,40 @@
-const swaggerUi = require("swagger-ui-express");
-const swaggerDocument = require("../swagger.json");
-
-module.exports = async (req, res) => {
-  res.setHeader("Content-Type", "text/html");
-  res.end(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>NKJ API Docs</title>
-        <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist/swagger-ui.css" />
-      </head>
-      <body>
-        <div id="swagger-ui"></div>
-        <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
-        <script>
-          window.onload = function () {
-            SwaggerUIBundle({
-              url: '/swagger.json',
-              dom_id: '#swagger-ui',
-            });
-          };
-        </script>
-      </body>
-    </html>
-  `);
-};
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "NKJ Email API",
+    "version": "1.0.0",
+    "description": "Send emails using the contact form of nkjconstructionllc.com"
+  },
+  "paths": {
+    "/api/send-email": {
+      "post": {
+        "summary": "Send contact email",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "email": { "type": "string" },
+                  "subject": { "type": "string" },
+                  "message": { "type": "string" }
+                },
+                "required": ["name", "email", "subject", "message"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email sent successfully"
+          },
+          "400": {
+            "description": "Validation error"
+          }
+        }
+      }
+    }
+  }
+}
