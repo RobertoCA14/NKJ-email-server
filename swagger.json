@@ -1,0 +1,44 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "NKJ Email API",
+    "version": "1.0.0",
+    "description": "Envío de correos desde el formulario de contacto"
+  },
+  "paths": {
+    "/api/send-email": {
+      "post": {
+        "summary": "Enviar correo",
+        "description": "Envía un correo con nombre, correo, asunto y mensaje",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "email": { "type": "string" },
+                  "subject": { "type": "string" },
+                  "message": { "type": "string" }
+                },
+                "required": ["name", "email", "subject", "message"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correo enviado exitosamente"
+          },
+          "400": {
+            "description": "Error de validación"
+          },
+          "500": {
+            "description": "Error del servidor"
+          }
+        }
+      }
+    }
+  }
+}
