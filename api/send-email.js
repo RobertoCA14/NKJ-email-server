@@ -1,66 +1,64 @@
-const nodemailer = require("nodemailer");
+const express = require('express');
+const cors = require('cors');
+const nodemailer = require('nodemailer');
+const validator = require('validator');
 
-const allowedOrigins = [
-  
-  "https://nkjconstructionllc.com", // tu dominio real
-  "https://tu-frontend.vercel.app", // reemplaza con el que estés usando
-  "https://codesandbox.io",         // si estás probando desde ahí
-];
+// Habilitar CORS (permitir todas las solicitudes por ahora)
+const app = express();
+app.use(cors());
+app.use(express.json());  // Para que se pueda leer el cuerpo JSON
 
-module.exports = async (req, res) => {
-  const origin = req.headers.origin;
-
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  }
-res.setHeader("Access-Control-Allow-Origin", "https://rycz3p-5173.csb.app");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  // Manejo del preflight (CORS pre-check)
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
-  if (req.method !== "POST") {
-    return res.status(405).json({ success: false, message: "Method not allowed" });
-  }
-
+// Ruta para el formulario de contacto
+app.post('/api/send-email', async (req, res) => {
   const { name, email, subject, message } = req.body;
 
+  // Validaciones
   if (!name || !email || !subject || !message) {
-    return res.status(400).json({ success: false, message: "All fields are required" });
+    return res.status(400).json({ success: false, message: 'All fields are required.' });
+  }
+ 
+  if (!validator.isEmail(email)) {
+    return res.status(400).json({ success: false, message: 'Invalid email format.' });
   }
 
   try {
+    // Configuración de Nodemailer
     const transporter = nodemailer.createTransport({
-      service: "gmail",
+      service: 'gmail',
       auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        user: process.env.EMAIL_USER,  // Tu correo de Gmail
+        pass: process.env.EMAIL_PASS,  // Tu contraseña de Gmail o App Password
       },
     });
 
+    // Enviar correo
     await transporter.sendMail({
       from: `${name} <${email}>`,
-      to: process.env.EMAIL_USER,
-      subject: subject,
+      to: process.env.EMAIL_USER,  // Correo destino
+      replyTo: email,
+      subject,
       html: `
-        <h2>New message received</h2>
+        <h2>New message from contact form</h2>
         <p><strong>Name:</strong> ${name}</p>
         <p><strong>Email:</strong> ${email}</p>
         <p><strong>Subject:</strong> ${subject}</p>
         <p><strong>Message:</strong><br>${message}</p>
         <hr>
         <p style="font-size: 0.9em; color: gray;">
-          Sent from <a href="https://nkjconstructionllc.com">nkjconstructionllc.com</a>
+          Sent from <a href="https://nkjconstructionllc.com" target="_blank">nkjconstructionllc.com</a>
         </p>
       `,
     });
 
-    return res.status(200).json({ success: true, message: "✅ Message sent successfully!" });
+    res.status(200).json({ success: true, message: '✅ Email sent successfully.' });
   } catch (error) {
-    console.error("Error sending email:", error);
-    return res.status(500).json({ success: false, message: "❌ Failed to send message", error });
+    console.error('❌ Error:', error);
+    res.status(500).json({ success: false, message: '❌ Failed to send email.', error });
   }
-};
+});
+
+// Puerto para escuchar las solicitudes
+const port = process.env.PORT || 5000;
+app.listen(port, () => {
+  console.log(`Server running on http://localhost:${port}`);
+});
