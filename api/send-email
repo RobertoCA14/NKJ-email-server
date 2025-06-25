@@ -6,7 +6,7 @@ const express = require("express");
 
 const app = express();
 
-// Configuración de CORS
+// Confi de CORS
 app.use(cors({
   origin: "https://rycz3p-5173.csb.app", // El dominio que puede hacer solicitudes
 }));
