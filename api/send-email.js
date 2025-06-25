@@ -1,34 +1,82 @@
-const nodemailer = require("nodemailer");
-const validator = require("validator");
+const dns = require('dns');
+const nodemailer = require('nodemailer');
+const validator = require('validator');
+const rateLimit = require('express-rate-limit');
+const xssFilters = require('xss-filters');
 
-function handleCors(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+// Configuración de Rate Limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // Limitar a 5 solicitudes por IP
+  message: { success: false, message: "Too many requests. Please try again later." },
+});
 
-  if (req.method === "OPTIONS") {
-    res.status(200).end();
+// Validación de correo
+const validateEmail = (email) => {
+  const emailRegex = /^[\w-]+(\.[\w-]+)*@([\w-]+\.)+[a-zA-Z]{2,7}$/;
+  const allowedDomains = [
+    "gmail.com",
+    "outlook.com",
+    "hotmail.com",
+    "yahoo.com"
+  ];
+  
+  if (!emailRegex.test(email)) return false; // Si el formato del correo no es válido, es inválido.
+  
+  const domain = email.split('@')[1]; // Extraemos el dominio después del '@'
+  
+  // Si es uno de los dominios permitidos, lo dejamos pasar
+  if (allowedDomains.includes(domain)) {
     return true;
   }
-  return false;
-}
+  
+  // Si no es un dominio permitido, verificamos si tiene un registro MX válido en DNS
+  return checkMXRecord(domain);
+};
+
+// Verificar si el dominio tiene un registro MX válido
+const checkMXRecord = (domain) => {
+  return new Promise((resolve, reject) => {
+    dns.resolveMx(domain, (err, addresses) => {
+      if (err || !addresses || addresses.length === 0) {
+        reject(new Error('Invalid domain or no MX records found'));
+      } else {
+        resolve(true);
+      }
+    });
+  });
+};
 
 module.exports = async (req, res) => {
-  if (handleCors(req, res)) return;
+  // Aplicar Rate Limiting
+  await new Promise((resolve, reject) => {
+    limiter(req, res, (result) => {
+      if (result instanceof Error) return reject(result);
+      resolve(result);
+    });
+  });
 
-  if (req.method !== "POST") {
-    return res.status(405).json({ success: false, message: "Method not allowed" });
-  }
-
+  // Validar campos
   const { name, email, subject, message } = req.body;
 
+  // Validar campos vacíos
   if (!name || !email || !subject || !message) {
     return res.status(400).json({ success: false, message: "All fields are required." });
   }
 
-  if (!validator.isEmail(email)) {
-    return res.status(400).json({ success: false, message: "Invalid email format." });
+  // Validar formato de email y dominio
+  try {
+    const emailIsValid = await validateEmail(email);
+    if (!emailIsValid) {
+      return res.status(400).json({ success: false, message: "Invalid email format or domain." });
+    }
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
   }
+
+  // Filtrar el contenido del mensaje
+  const sanitizedMessage = xssFilters.inHTMLData(message);  // Filtrar contenido potencialmente malicioso
+  const sanitizedName = xssFilters.inHTMLData(name);  // Filtrar nombre
 
   try {
     const transporter = nodemailer.createTransport({
@@ -39,18 +87,18 @@ module.exports = async (req, res) => {
       },
     });
 
-    // 1. Correo hacia la empresa
+    // 1. Enviar el correo a la empresa
     await transporter.sendMail({
-      from: `${name} <${email}>`,
+      from: `${sanitizedName} <${email}>`,
       to: process.env.EMAIL_USER,
       replyTo: email,
       subject,
       html: `
         <h2>New message from contact form</h2>
-        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Name:</strong> ${sanitizedName}</p>
         <p><strong>Email:</strong> ${email}</p>
         <p><strong>Subject:</strong> ${subject}</p>
-        <p><strong>Message:</strong><br>${message}</p>
+        <p><strong>Message:</strong><br>${sanitizedMessage}</p>
         <hr>
         <p style="font-size: 0.9em; color: gray;">
           Sent from <a href="https://nkjconstructionllc.com" target="_blank">nkjconstructionllc.com</a>
@@ -64,7 +112,7 @@ module.exports = async (req, res) => {
       to: email,
       subject: "We received your message!",
       html: `
-        <p>Hi ${name},</p>
+        <p>Hi ${sanitizedName},</p>
         <p>Thank you for contacting <strong>NKJ Construction</strong>. We’ve received your message and will get back to you as soon as possible.</p>
         <p>If your inquiry is urgent, feel free to call us directly.</p>
         <br>
