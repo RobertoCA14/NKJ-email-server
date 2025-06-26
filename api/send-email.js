@@ -6,10 +6,7 @@ import xssFilters from "xss-filters";
 import Cors from "cors";
 
 // CORS middleware
-const cors = Cors({
-  origin: "https://rycz3p-5173.csb.app", // tu frontend
-  methods: ["POST"],
-});
+const cors = Cors({});
 
 // Helper para ejecutar middleware en Vercel
 function runMiddleware(req, res, fn) {
