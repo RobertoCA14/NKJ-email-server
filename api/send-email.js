@@ -97,7 +97,7 @@ export default async function handler(req, res) {
       replyTo: email,
       subject: xssFilters.inHTMLData(subject),
       html: `
-        <h3>New message from ${xssFilters.inHTMLData(name)} &lt;${xssFilters.inHTMLData(email)}&gt;</h3>
+        <h3>New message from ${xssFilters.inHTMLData(name)}</h3>
         <p><strong>Name:</strong> ${xssFilters.inHTMLData(name)}</p>
         <p><strong>Email:</strong> ${xssFilters.inHTMLData(email)}</p>
         <p><strong>Subject:</strong> ${xssFilters.inHTMLData(subject)}</p>
