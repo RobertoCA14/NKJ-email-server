@@ -1,31 +1,27 @@
-const dns = require("dns");
-const nodemailer = require("nodemailer");
-const validator = require("validator");
-const rateLimit = require("express-rate-limit");
-const xssFilters = require("xss-filters");
-const cors = require("cors");
-const express = require("express");
+import dns from "dns";
+import nodemailer from "nodemailer";
+import validator from "validator";
+import rateLimit from "express-rate-limit";
+import xssFilters from "xss-filters";
+import Cors from "cors";
 
-const app = express();
-
-// Habilitar CORS
-app.use(cors({
-  origin: 'https://rycz3p-5173.csb.app', // Cambia a tu dominio de frontend
-}));
-
-// Configuración de Rate Limiting (5 solicitudes por IP cada 15 minutos)
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 5, // 5 solicitudes por IP
-  message: { success: false, message: "Too many requests. Please try again later." },
+// CORS middleware
+const cors = Cors({
+  origin: "https://rycz3p-5173.csb.app", // tu frontend
+  methods: ["POST"],
 });
 
-app.use(limiter);
+// Helper para ejecutar middleware en Vercel
+function runMiddleware(req, res, fn) {
+  return new Promise((resolve, reject) => {
+    fn(req, res, (result) => {
+      if (result instanceof Error) return reject(result);
+      return resolve(result);
+    });
+  });
+}
 
-// Configurar el parsing de JSON
-app.use(express.json());
-
-// Validación de correo
+// Valida dominios comunes
 const validateEmail = (email) => {
   const emailRegex = /^[\w-]+(\.[\w-]+)*@([\w-]+\.)+[a-zA-Z]{2,7}$/;
   const allowedDomains = [
@@ -34,14 +30,12 @@ const validateEmail = (email) => {
     "hotmail.com",
     "yahoo.com",
   ];
-  
   if (!emailRegex.test(email)) return false;
-
-  const domain = email.split('@')[1];
+  const domain = email.split("@")[1];
   return allowedDomains.includes(domain);
 };
 
-// Verificar si el dominio tiene un registro MX válido usando DNS
+// Verifica si el dominio tiene registros MX
 const checkMXRecord = (domain) => {
   return new Promise((resolve, reject) => {
     dns.resolveMx(domain, (err, addresses) => {
@@ -54,32 +48,41 @@ const checkMXRecord = (domain) => {
   });
 };
 
-app.post("/send-email", async (req, res) => {
+export default async function handler(req, res) {
+  await runMiddleware(req, res, cors);
+
+  if (req.method !== "POST") {
+    return res.status(405).json({ success: false, message: "Method not allowed." });
+  }
+
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    handler: (_, res) => {
+      return res.status(429).json({ success: false, message: "Too many requests. Please try again later." });
+    },
+  });
+
+  await runMiddleware(req, res, limiter);
+
   const { name, email, subject, message } = req.body;
 
-  // Validar campos obligatorios
   if (!name || !email || !subject || !message) {
-    return res.status(400).json({ success: false, message: "All fields are required." });
+    return res.status(400).json({ success: false, message: "Missing required fields." });
   }
 
-  // Validar formato de email y dominio
-  try {
-    if (!validateEmail(email)) {
-      return res.status(400).json({ success: false, message: "Invalid email format or domain." });
-    }
-
-    // Si no es un dominio permitido, verificar registro MX
-    const domain = email.split('@')[1];
-    if (!['gmail.com', 'outlook.com', 'hotmail.com', 'yahoo.com'].includes(domain)) {
-      await checkMXRecord(domain);
-    }
-  } catch (error) {
-    return res.status(400).json({ success: false, message: error.message });
+  if (!validator.isEmail(email)) {
+    return res.status(400).json({ success: false, message: "Invalid email format." });
   }
 
-  // Filtrar el contenido del mensaje y nombre (prevención de XSS)
-  const sanitizedMessage = xssFilters.inHTMLData(message);
-  const sanitizedName = xssFilters.inHTMLData(name);
+  if (!validateEmail(email)) {
+    try {
+      const domain = email.split("@")[1];
+      await checkMXRecord(domain); // Si no es de los dominios permitidos, validamos con DNS
+    } catch {
+      return res.status(400).json({ success: false, message: "Email domain not valid." });
+    }
+  }
 
   try {
     const transporter = nodemailer.createTransport({
@@ -90,18 +93,18 @@ app.post("/send-email", async (req, res) => {
       },
     });
 
-    // 1. Enviar el correo a la empresa
+    // 1. Correo hacia la empresa
     await transporter.sendMail({
-      from: `${sanitizedName} <${email}>`,
-      to: process.env.EMAIL_USER,  // El correo de destino
+      from: `${xssFilters.inHTMLData(name)} <${xssFilters.inHTMLData(email)}>`,
+      to: process.env.EMAIL_USER,
       replyTo: email,
-      subject,
+      subject: xssFilters.inHTMLData(subject),
       html: `
         <h2>New message from contact form</h2>
-        <p><strong>Name:</strong> ${sanitizedName}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Subject:</strong> ${subject}</p>
-        <p><strong>Message:</strong><br>${sanitizedMessage}</p>
+        <p><strong>Name:</strong> ${xssFilters.inHTMLData(name)}</p>
+        <p><strong>Email:</strong> ${xssFilters.inHTMLData(email)}</p>
+        <p><strong>Subject:</strong> ${xssFilters.inHTMLData(subject)}</p>
+        <p><strong>Message:</strong><br>${xssFilters.inHTMLData(message)}</p>
         <hr>
         <p style="font-size: 0.9em; color: gray;">
           Sent from <a href="https://nkjconstructionllc.com" target="_blank">nkjconstructionllc.com</a>
@@ -111,11 +114,11 @@ app.post("/send-email", async (req, res) => {
 
     // 2. Respuesta automática al usuario
     await transporter.sendMail({
-      from: `NKJ Construction <${process.env.EMAIL_USER}>`,
+      from: `NKJ Construction LLC<${process.env.EMAIL_USER}>`,
       to: email,
       subject: "We received your message!",
       html: `
-        <p>Hi ${sanitizedName},</p>
+        <p>Hi ${xssFilters.inHTMLData(name)},</p>
         <p>Thank you for contacting <strong>NKJ Construction</strong>. We’ve received your message and will get back to you as soon as possible.</p>
         <p>If your inquiry is urgent, feel free to call us directly.</p>
         <br>
@@ -130,9 +133,4 @@ app.post("/send-email", async (req, res) => {
     console.error("❌ Error:", error);
     res.status(500).json({ success: false, message: "❌ Failed to send email.", error });
   }
-});
-
-// Configurar el puerto del servidor (si es necesario)
-app.listen(3000, () => {
-  console.log("🚀 Server running on port 3000");
-});
+}
