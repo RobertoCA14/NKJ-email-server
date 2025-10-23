@@ -91,23 +91,24 @@ export default async function handler(req, res) {
     });
 
     // 1. Correo hacia la empresa
-    await transporter.sendMail({
-      from: `${xssFilters.inHTMLData(name)} <${xssFilters.inHTMLData(email)}>`,
-      to: process.env.EMAIL_USER,
-      replyTo: email,
-      subject: xssFilters.inHTMLData(subject),
-      html: `
-        <h3>New message from ${xssFilters.inHTMLData(name)}</h3>
-        <p><strong>Name:</strong> ${xssFilters.inHTMLData(name)}</p>
-        <p><strong>Email:</strong> ${xssFilters.inHTMLData(email)}</p>
-        <p><strong>Subject:</strong> ${xssFilters.inHTMLData(subject)}</p>
-        <p><strong>Message:</strong><br>${xssFilters.inHTMLData(message)}</p>
-        <hr>
-        <p style="font-size: 0.9em; color: gray;">
-          Sent from <a href="https://nkjconstructionllc.com" target="_blank">nkjconstructionllc.com</a>
-        </p>
-      `,
-    });
+   await transporter.sendMail({
+  from: `${xssFilters.inHTMLData(name)} <${xssFilters.inHTMLData(email)}>`,
+  to: process.env.EMAIL_USER,
+  replyTo: email,
+  subject: xssFilters.inHTMLData(subject),
+  html: `
+    <h3>New message from ${xssFilters.inHTMLData(name)}</h3>
+    <p><strong>Name:</strong> ${xssFilters.inHTMLData(name)}</p>
+    <p><strong>Email:</strong> ${xssFilters.inHTMLData(email)}</p>
+    <p><strong>Phone:</strong> ${xssFilters.inHTMLData(phone)}</p>
+    <p><strong>Subject:</strong> ${xssFilters.inHTMLData(subject)}</p>
+    <p><strong>Message:</strong><br>${xssFilters.inHTMLData(message)}</p>
+    <hr>
+    <p style="font-size: 0.9em; color: gray;">
+      Sent from <a href="https://nkjconstructionllc.com" target="_blank">nkjconstructionllc.com</a>
+    </p>
+  `,
+});
 
     // 2. Respuesta automática al usuario
     await transporter.sendMail({
